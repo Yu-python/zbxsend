@@ -2,6 +2,7 @@ import struct
 import time
 import socket
 import logging
+
 try:
     import json
 except:
@@ -20,9 +21,10 @@ class Metric(object):
             return 'Metric(%r, %r, %r)' % (self.host, self.key, self.value)
         return 'Metric(%r, %r, %r, %r)' % (self.host, self.key, self.value, self.clock)
 
+
 def send_to_zabbix(metrics, zabbix_host='127.0.0.1', zabbix_port=10051, timeout=15):
-    """Send set of metrics to Zabbix server.""" 
-    
+    """Send set of metrics to Zabbix server."""
+
     j = json.dumps
     # Zabbix has very fragile JSON parser, and we cannot use json to dump whole packet
     metrics_data = []
@@ -34,12 +36,15 @@ def send_to_zabbix(metrics, zabbix_host='127.0.0.1', zabbix_port=10051, timeout=
                              '\t\t\t"value":%s,\n'
                              '\t\t\t"clock":%s}') % (j(m.host), j(m.key), j(m.value), clock))
     json_data = ('{\n'
-           '\t"request":"sender data",\n'
-           '\t"data":[\n%s]\n'
-           '}') % (',\n'.join(metrics_data))
-    
+                 '\t"request":"sender data",\n'
+                 '\t"data":[\n%s]\n'
+                 '}') % (',\n'.join(metrics_data))
+
     data_len = struct.pack('<Q', len(json_data))
-    packet = 'ZBXD\1' + data_len + json_data
+    print(type(data_len), data_len)
+    packet = b'ZBXD\1' + data_len + json_data.encode('utf-8')
+    print(packet)
+    print(type(packet))
     try:
         zabbix = socket.socket()
         zabbix.connect((zabbix_host, zabbix_port))
@@ -48,7 +53,7 @@ def send_to_zabbix(metrics, zabbix_host='127.0.0.1', zabbix_port=10051, timeout=
         zabbix.sendall(packet)
         # get response header from zabbix
         resp_hdr = _recv_all(zabbix, 13)
-        if not resp_hdr.startswith('ZBXD\1') or len(resp_hdr) != 13:
+        if not resp_hdr.decode('utf-8').startswith('ZBXD\1') or len(resp_hdr) != 13:
             logger.error('Wrong zabbix response')
             return False
         resp_body_len = struct.unpack('<Q', resp_hdr[5:])[0]
@@ -71,19 +76,20 @@ def send_to_zabbix(metrics, zabbix_host='127.0.0.1', zabbix_port=10051, timeout=
         zabbix.close()
 
 
+logger = logging.getLogger('zbxsender')
 
-logger = logging.getLogger('zbxsender') 
 
 def _recv_all(sock, count):
-    buf = ''
-    while len(buf)<count:
-        chunk = sock.recv(count-len(buf))
+    buf = b''
+    while len(buf) < count:
+        chunk = sock.recv(count - len(buf))
+        print(chunk)
         if not chunk:
             return buf
         buf += chunk
     return buf
 
-    
+
 if __name__ == '__main__':
     logging.basicConfig(level=logging.DEBUG)
     send_to_zabbix([Metric('localhost', 'bucks_earned', 99999)], 'localhost', 10051)
