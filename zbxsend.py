@@ -30,15 +30,22 @@ def send_to_zabbix(metrics, zabbix_host='127.0.0.1', zabbix_port=10051, timeout=
     metrics_data = []
     for m in metrics:
         clock = m.clock or time.time()
-        metrics_data.append(('\t\t{\n'
-                             '\t\t\t"host":%s,\n'
-                             '\t\t\t"key":%s,\n'
-                             '\t\t\t"value":%s,\n'
-                             '\t\t\t"clock":%s}') % (j(m.host), j(m.key), j(m.value), clock))
-    json_data = ('{\n'
-                 '\t"request":"sender data",\n'
-                 '\t"data":[\n%s]\n'
-                 '}') % (',\n'.join(metrics_data))
+        # metrics_data.append(('\t\t{\n'
+        #                      '\t\t\t"host":%s,\n'
+        #                      '\t\t\t"key":%s,\n'
+        #                      '\t\t\t"value":%s,\n'
+        #                      '\t\t\t"clock":%s}') % (j(m.host), j(m.key), j(m.value), clock))
+        metrics_data.append({
+            "host": m.host,
+            "key": m.key,
+            "value": m.value,
+            "clock": m.clock,
+        })
+    # json_data = ('{\n'
+    #              '\t"request":"sender data",\n'
+    #              '\t"data":[\n%s]\n'
+    #              '}') % (',\n'.join(metrics_data))
+    json_data = json.dumps({"request":"sender data","data":metrics_data})
 
     data_len = struct.pack('<Q', len(json_data))
     print(type(data_len), data_len)
